@@ -1,10 +1,11 @@
 # About the Program
-GPU-based integration of a Fully-Coupled Kuramoto model and its tangent space with random interaction or a user-specified adjacency matrix. Used for an analysis on the largest Lyapunov exponent in the weak coupling regime. The numerical solver is a general Runge-Kutta 4th order method.
+GPU-based integration of a Fully-Coupled Kuramoto model and its tangent space with random interaction or a user-specified adjacency matrix. The numerical solver is a general Runge-Kutta 4th order method.
+
+This program enables an analysis on the leading Lyapunov vector and the largest Lyapunov exponent, specifically in the weak coupling regime.
 
 # Usage of Repository
 
-This is an example of how you may give instructions on setting up your project locally.
-To get a local copy up and running follow these simple example steps.
+This repository contains the program for the numerical simulation which is run on a GPU
 
 ## Compilation
 
@@ -13,6 +14,9 @@ This is an example of how to list things you need to use the software and how to
   ```sh
   npm install npm@latest -g
   ```
+
+  [!WARNING]
+  Need to check the architecture
 
 ## Running kuramoto
 
@@ -24,10 +28,7 @@ This is an example of how to list things you need to use the software and how to
 
 ## Output and Input files
 
-
-## SLURM batch jobs Example
-
-## Remarks
+## Graphs
 
 
 # Acknowledgments
