@@ -94,10 +94,38 @@ The tangent space starts from N to 2N.
 __global__ void kuramoto_traj_tan(double *y2, double* f, double *f2,  double *omegas ,const double JsqrtN, const unsigned long int N){
     int i = blockIdx.x*blockDim.x+threadIdx.x;
     if (i<N){
-        int j = N+i;
-        f[i]=omegas[i]+JsqrtN*(y2[2*i]*f2[2*i+1]-y2[2*i+1]*f2[2*i]); 
-        f[j]=JsqrtN*(y2[2*i]*f2[2*j]+y2[2*i+1]*f2[2*j+1]-(y2[2*j]*f2[2*i]+y2[2*j+1]*f2[2*i+1]));
+        int j = N+i; // Offset from theta to v
+        
+        const double2* __restrict__ y2_cs = reinterpret_cast<double2*>(y2);
+        const double2* __restrict__ f2_cs = reinterpret_cast<double2*>(f2);
+        
+        // cs mean it is (cos, sin) accessed through cs.x and cs.y respectively.
+        // Acs is the row sum with the adjacency matrix
+        double2 cs_theta = y2_cs[i];
+        double2 cs_v = y2_cs[j];
+        double2 Acs_theta = f2_cs[i];
+        double2 Acs_v = f2_cs[j];
+        
+        
+        f[i]=omegas[i]+JsqrtN*(cs_theta.x*Acs_theta.y-cs_theta.y*Acs_theta.x); 
+        f[j]=JsqrtN*(cs_theta.x*Acs_v.x+cs_theta.y*Acs_v.y-(cs_v.x*Acs_theta.x+cs_v.y*Acs_theta.y));
     } 
+}
+
+__global__ void kuramoto_traj(double *y2, double *f, double *f2, double *omegas, const double JsqrtN, const unsigned long int N){
+    int i = blockIdx.x*blockDim.x+threadIdx.x;
+    if (i<N){
+    
+        const double2* __restrict__ y2_cs = reinterpret_cast<double2*>(y2);
+        const double2* __restrict__ f2_cs = reinterpret_cast<double2*>(f2);
+        
+        // cs mean it is (cos, sin) accessed through cs.x and cs.y respectively.
+        // Acs is the row sum with the adjacency matrix
+        double2 cs_theta = y2_cs[i];
+        double2 Acs_theta = f2_cs[i];
+        
+        f[i]=omegas[i]+JsqrtN*(cs_theta.x*Acs_theta.y-cs_theta.y*Acs_theta.x); 
+    }
 }
 
 
@@ -111,11 +139,29 @@ Given the separation of sin(theta_j-theta_i) into products of sin and cos, this 
 __global__ void makey2_tan(double *y, double *y2, const unsigned long int N){
     int i = blockIdx.x*blockDim.x+threadIdx.x;
     if (i<N){
-        double* ptr=y2+2*i;
-        int idx2 = N+i;
-        sincos(y[i],ptr+1,ptr);
-        y2[2*idx2]=*(ptr)*y[idx2];
-        y2[2*idx2+1]=*(ptr+1)*y[idx2];
+    
+        double2* __restrict__ y2v = reinterpret_cast<double2*>(y2);
+
+        double s, c;
+        sincos(y[i], &s, &c);
+        
+        double v = y[N+i]
+        
+        y2v[i] = make_double2(c, s);
+        y2v[N+i] = make_double2(c*v, s*v);
+    }
+}
+
+__global__ void makey2(double *y, double *y2, const unsigned long int N){
+    int i = blockIdx.x*blockDim.x+threadIdx.x; // Number thread for the computation.
+    if (i<N){
+    
+        double2* __restrict__ y2v = reinterpret_cast<double2*>(y2);
+
+        double s, c;
+        sincos(y[i], &s, &c);
+        
+        y2v[i] = make_double2(c, s);
     }
 }
 
@@ -184,6 +230,51 @@ __global__ void makef2_tan(double* y2, double* f, const unsigned long int N, con
     }
 }
 
+__global__ void makef2(double* y2, double* f, const unsigned long int N, const double eS, const double eA, curandStatePhilox4_32_10_t *globalState){
+    int i = blockIdx.x*blockDim.x+threadIdx.x;
+    if (i<N){
+        curandStatePhilox4_32_10_t state = *globalState;
+        skipahead(2*i*(i-1),&state);
+        
+        const double2* __restrict__ y2v = reinterpret_cast<const double2*>(y2);
+        
+        double2 tmpSum = make_double2(0.0,0.0);
+        double elem;
+        double2 rnd;
+        
+        
+        // Lower triangular loop
+        for(int j=0;j<i;j++){
+
+            rnd = curand_normal2_double(&state);
+            elem=eS*rnd.x-eA*rnd.y;
+
+            tmpSum.x+=elem*y2v[j].x;
+            tmpSum.y+=elem*y2v[j].y;
+                       
+        }
+        
+        skipahead(2*2*i,&state);
+        
+        // Upper triangular loop
+        for(int j=i+1;j<N;j++){
+            
+            rnd = curand_normal2_double(&state);
+            elem=eS*rnd.x+eA*rnd.y;
+
+            tmpSum.x+=elem*y2v[j].x;
+            tmpSum.y+=elem*y2v[j].y;
+            
+            skipahead(2*2*(j-1),&state);
+        }
+        
+        // Saving sums
+        
+        reinterpret_cast<double2*>(f)[i] = tmpSum;
+
+    }
+}
+
 /**
 Generates the adjacency matrix
 
@@ -240,6 +331,10 @@ __global__ void init_global_state(curandStatePhilox4_32_10_t *globalState, int s
     curand_init(seed, 0, 0, globalState); //Global state without update
 }
 
+/**
+Reduces the final state so the trajectories do not explode if reused in another simulation.
+We don't do anything with the tangent space because we keep normalizing when calculating the FTLE. 
+*/
 __global__ void reduceFinalState(double* y, int N){
     int i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i<N){
@@ -252,12 +347,11 @@ __global__ void reduceFinalState(double* y, int N){
 /**
 Generates the f2 array for a certain time of a simulation
 
-@param  {double*}   dy      N array with tangent space delta theta_i
 @param  {double*}   y2      2N array for the trig-angle of theta_i (2i+1 for sin and 2i for cos) 
 @param  {double*}   f2      2N array for trig-angle sum contributions       
 @param  {void*}     pars    Pointer to parameter structure
 */
-void makecouplings_tan(double *dy, double *y2, double *f, void *pars){
+void makecouplings_tan(double *y2, double *f2, void *pars){
 
     parameters *p = (parameters *) pars;
 
@@ -265,13 +359,28 @@ void makecouplings_tan(double *dy, double *y2, double *f, void *pars){
         double alpha=1.0;
         double beta=0.0;
         // Gets the multiplication as for the trajectories
-        cublasDgemv(p->handle, CUBLAS_OP_T, p->N, p->N, &alpha, p->adj,p->N,y2,2,&beta,f,2);
-        cublasDgemv(p->handle, CUBLAS_OP_T, p->N, p->N, &alpha, p->adj,p->N,y2+1,2,&beta,f+1,2);
+        cublasDgemv(p->handle, CUBLAS_OP_T, p->N, p->N, &alpha, p->adj,p->N,y2,2,&beta,f2,2);
+        cublasDgemv(p->handle, CUBLAS_OP_T, p->N, p->N, &alpha, p->adj,p->N,y2+1,2,&beta,f2+1,2);
         // Gets the multiplication for the tangent space
-        cublasDgemv(p->handle, CUBLAS_OP_T, p->N, p->N, &alpha, p->adj,p->N,y2+2*p->N,2,&beta,f+2*p->N,2);
-        cublasDgemv(p->handle, CUBLAS_OP_T, p->N, p->N, &alpha, p->adj,p->N,y2+2*p->N+1,2,&beta,f+2*p->N+1,2);
+        cublasDgemv(p->handle, CUBLAS_OP_T, p->N, p->N, &alpha, p->adj,p->N,y2+2*p->N,2,&beta,f2+2*p->N,2);
+        cublasDgemv(p->handle, CUBLAS_OP_T, p->N, p->N, &alpha, p->adj,p->N,y2+2*p->N+1,2,&beta,f2+2*p->N+1,2);
     } else  {
-        makef2_tan<<<(p->N+255)/256,256>>>(y2,f,p->N,p->eS, p->eA, p->state);
+        makef2_tan<<<(p->N+255)/256,256>>>(y2,f2,p->N,p->eS, p->eA, p->state);
+    }
+}
+
+void makecouplings(double *y2, double *f2, void *pars){
+
+    parameters *p = (parameters *) pars;
+
+    if (p->A){
+        double alpha=1.0;
+        double beta=0.0;
+        // IMPORTANT: The CUBLAS function assumes adj is stored by columns..
+        cublasDgemv(p->handle, CUBLAS_OP_T, p->N, p->N, &alpha, p->adj, p->N,y2, 2,&beta,f2,2);
+        cublasDgemv(p->handle, CUBLAS_OP_T, p->N, p->N, &alpha, p->adj, p->N,y2+1, 2,&beta,f2+1,2);
+    } else  {
+        makef2<<<(p->N+255)/256,256>>>(y2, f2, p->N, p->eS, p->eA, p->state);
     }
 }
 
@@ -292,14 +401,13 @@ void dydt_tan(double t, double* y, double* f, void* pars){
     kuramoto_traj_tan<<<(p->N+255)/256,256>>>(p->y2, f, p->f2, p->omegas, p->JsqrtN, p->N);
 }
 
-/**
-Generates the adjacency matrix as an array row by row.
-
-@param  {void*}     pars    Pointer to parameter structure
-*/
-void getadj(void *pars){
+void dydt(double t, double* y, double* f, void* pars){
     parameters *p = (parameters *) pars;
-    makeadj<<<(p->N+255)/256,256>>>(p->adj, p->N, p->eS, p->eA, p->state);
+
+    makey2<<<(p->N+255)/256,256>>>(y,p->y2,p->N);
+    makecouplings(y+p->N,p->y2,p->f2,pars);
+
+    kuramoto_traj<<<(p->N+255)/256,256>>>(p->y2, f, p->f2, p->omegas, p->JsqrtN, p->N);
 }
 
 /**
@@ -421,10 +529,11 @@ void mode_lyapunov(void* pars){
     FILE *outtimes, *outthetas, *outlyap, *outnorm;
     
     // Termalization trajectories, reset and termalization Lyapunov
+    rk4_init(p->N, p->h, p->yloc, &dydt);
     
     y=rk4_run_term(&(p->ct),p->tterm,pars);
     
-    cublasGetVector(2*p->N, sizeof(double), y, 1, p->yloc, 1);
+    cublasGetVector(p->N, sizeof(double), y, 1, p->yloc, 1);
     
     rk4_reset(2*p->N,p->yloc,&dydt_tan);
     
@@ -524,9 +633,11 @@ void mode_MLE(void* pars){
     
     // Termalization trajectories, reset and termalization Lyapunov
     
+    rk4_init(p->N, p->h, p->yloc, &dydt);
+    
     y=rk4_run_term(&(p->ct),p->tterm,pars);
     
-    cublasGetVector(2*p->N, sizeof(double), y, 1, p->yloc, 1);
+    cublasGetVector(p->N, sizeof(double), y, 1, p->yloc, 1);
     
     rk4_reset(2*p->N,p->yloc,&dydt_tan);
     
@@ -586,10 +697,11 @@ void mode_checkTrans(void* pars){
     FILE *outthetas;
     
     // Termalization trajectories, reset and termalization Lyapunov
+    rk4_init(p->N, p->h, p->yloc, &dydt);
     
     y=rk4_run_term(&(p->ct),p->tterm,pars);
     
-    cublasGetVector(2*p->N, sizeof(double), y, 1, p->yloc, 1);
+    cublasGetVector(p->N, sizeof(double), y, 1, p->yloc, 1);
     
     rk4_reset(2*p->N,p->yloc,&dydt_tan);
     
@@ -958,7 +1070,41 @@ int main(int argc, char*argv[]){
     double eS=std::sqrt(0.5*(1.0+eta));
     double eA=std::sqrt(0.5*(1.0-eta));
     double JsqrtN=J/std::sqrt(N);
-
+    
+    strcpy(file,filebase);
+    strcat(file,"_adj.dat");    
+    
+    if (A && (in = fopen(file,"r")) && reload_adj==1){
+    
+        printf("Using adjacency from file\n");
+        size_t read_adj=fread(adjloc,sizeof(double),N*N,in);
+        fclose(in);
+        
+        if (read_adj!=N){
+            printf("Adjacency matrix not compatible with N!\n\n");
+            return 1;
+    
+        cublasSetVector(N*N, sizeof(double), adjloc, 1, adj, 1);
+    
+    } else {
+        printf("Using random adjacency matrix\n");
+        if(A){
+            printf("Generating adjacency matrix from seed.\n");
+            
+            makeadj<<<(N+255)/256,256>>>(adj, N, eS, eA, state);
+            
+            if (dense>=2) {
+                printf("Saving adjacency matrix.\n");
+                cublasGetVector(N*N, sizeof(double), adj, 1, adjloc, 1);
+                in=fopen(file,"wb");
+                fwrite(adjloc,sizeof(double),N*N,in);
+                fclose(in);
+            }
+        }
+    }
+    
+    fflush(stdout);
+    
     parameters pars ={ 
         .N=N, 
 
@@ -997,35 +1143,6 @@ int main(int argc, char*argv[]){
         
         .filebase=filebase
     };
-    
-    strcpy(file,filebase);
-    strcat(file,"_adj.dat");    
-    
-    if (A && (in = fopen(file,"r")) && reload_adj==1){
-    
-        printf("Using adjacency from file\n");
-        size_t read=fread(adjloc,sizeof(double),N*N,in);
-        fclose(in);
-    
-        cublasSetVector(N*N, sizeof(double), adjloc, 1, adj, 1);
-    
-    } else {
-        printf("Using random adjacency matrix\n");
-        if(A){
-            printf("Generating adjacency matrix from seed.\n");
-            getadj(&pars);
-            if (dense>=2) {
-                printf("Saving adjacency matrix.\n");
-                cublasGetVector(N*N, sizeof(double), adj, 1, adjloc, 1);
-                in=fopen(file,"wb");
-                fwrite(adjloc,sizeof(double),N*N,in);
-                fclose(in);
-            }
-        }
-    }
-    fflush(stdout);
-    
-    rk4_init(N, h, yloc, &dydt_tan);
     
     /** Mode Selector (Add any if needed) **/
     if (m==0){
@@ -1069,6 +1186,7 @@ int main(int argc, char*argv[]){
         cudaFree(adj);    
     }
     
+    cudaFree(state);
     cublasDestroy(handle);     
 
     rk4_free();
