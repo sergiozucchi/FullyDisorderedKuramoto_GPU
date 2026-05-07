@@ -24,15 +24,15 @@ cd FullyDisorderedKuramoto_GPU
 
 nvcc -O3 -lcurand -lcublas -lcuda rk4_64.cu kuramoto_rk4_64_v3.cu -arch=sm_70 -o kuramotoGPU
 ```
-
-[!WARNING]
-Specify the appropriate GPU architecture in the flag -arch
+<div class="alert alert-block alert-warning">
+Specify the appropriate GPU architecture in the flag `-arch`
+</div>
 
 ## Running Kuramoto
 ### Help message
 Run `kuramotoGPU -h` to get the help message:
 
-```sh
+```
 Usage: ./kuramotoGPU [OPTIONS] filebase
 
 Required:
