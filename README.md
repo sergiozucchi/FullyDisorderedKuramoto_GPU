@@ -5,31 +5,100 @@ This program enables an analysis on the leading Lyapunov vector and the largest 
 
 # Usage of Repository
 
-This repository contains the program for the numerical simulation which is run on a GPU
+This repository contains the program for the numerical simulation which runs on a GPU.
+
+## Structure
+
+- `rk4_64.*`: Generic Runge-Kutta 4th order ODE solver.
+- `kuramoto_rk4_64_v3.cu`: CUDA C program for the simulation of the Kuramoto model
+
 
 ## Compilation
 
-This is an example of how to list things you need to use the software and how to install them.
-* npm
-  ```sh
-  npm install npm@latest -g
-  ```
+In order to run the program his is an example of how to list things you need to use the software and how to install them.
+```bash
+# Clone the repository
+git clone <repo-url>
+cd FullyDisorderedKuramoto_GPU
 
-  [!WARNING]
-  Need to check the architecture
 
-## Running kuramoto
+nvcc -O3 -lcurand -lcublas -lcuda rk4_64.cu kuramoto_rk4_64_v3.cu -arch=sm_70 -o kuramotoGPU
+```
 
-1. A
-2. Bo
-   ```sh
-   A
-   ```
+[!WARNING]
+Specify the appropriate GPU architecture in the flag -arch
 
-## Output and Input files
+## Running Kuramoto
+### Help message
+Run `kuramotoGPU -h` to get the help message:
 
-## Graphs
+```sh
+Usage: ./kuramotoGPU [OPTIONS] filebase
 
+Required:
+  -N, --num N               Number of oscillators
+  -J, --coupling J          Coupling strength coefficient
+  filebase                  Base filename for output
+
+Flags:
+  -h, --help                Show this help message and exits
+  -n, --normal              Normal distributed frequencies          (default: Cauchy)
+  -A, --adj                 Stores the full adjacency matrix        (uses more memory)
+  -i, --reload-theta        Reload only thetas as intial conditions from file
+
+Reload Options:
+      --reload-ic           Reload full initial conditions from file
+      --reload-freq         Reload frequencies from file
+      --reload-adj          Reload adjacency A from file
+
+Simulation Parameters:
+  -e, --eta eta             Matrix asymmetry parameter [-1,1]               (default: 0.0)
+  -I, --amplitude I         Scale for random uniform initial conditions     (default: 1.0)
+  -f, --freq f              Frequency scale                                 (default: 1.0)
+  -t, --time t              Total integration time (excl. therm.)           (default: 1e2)
+  -o, --output-step dt      Integration steps between outputs               (default: 10)
+  -d, --timestep h          Integrator timestep                             (default: 1e-2)
+  -l, --tau tau             Time between Lyapunov exponent evaluations      (default: 20.0)
+  -w, --thterm t            Thermalization time                             (default: 100.0)
+  -W, --thterm-lyap t       Tangent space thermalization time               (default: 500.0)
+  -s, --seed s              Random seed                                     (default: 0)
+Mode Parameter (Add other modes if needed):
+  -m, --mode m              Mode selector       (default: 0)
+                              0 = Mode for one run of MLE evaluation.
+                              1 = Mode for multiple runs for the average in MLE evaluations.
+                              2 = Mode for one run to save the full vector.
+
+Output Parameter:
+  -D, --dense d             Output density      (default: 0)
+                              0 = MLE and final state
+                              1 = 0 + thetas
+                              2 = 1 + adjacency
+
+Example:
+  ./kuramotoGPU -N 500 -J 0.5 -e 1 filebase
+
+```
+
+### Adding modes
+If you need add a new mode for something specific in the simulation, write the step evaluation function (`step_eval_*`) and the general mode function (`mode_*`) in the Kuramoto CUDA file. Then, add the mode in the node selection section and the flag `-m`.
+
+See examples in the code.
+
+### Examples
+
+This execution runs a 6400 oscilator simulation with assymetry parameter $\eta=1$ and coupling strength $J=0.1$.
+```bash
+./kuramoto -nA -I 1.0 -N 6400 -J 0.1 -e 1 -t 5000 -d 0.1 -l 100 -w 100 -m 1 -s 0  out
+```
+
+### Output and Input files
+
+The required argumetn `filebase` gives the base name for the output and input files. In general:
+
+- `filebase.out` is a text file containing command lines, runtime and some general information.
+- `filebase_fs.dat` is the final state in binary format. The final time and step size h are appended at the end.
+- `filebase_freq.dat` is the oscillators natural frequency $\omega$ in binary format.
+- `filebase_adj.dat` is the adjacency matrix in columns and binary format.
 
 # Acknowledgments
 
