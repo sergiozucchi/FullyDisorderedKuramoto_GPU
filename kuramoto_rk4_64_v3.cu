@@ -11,7 +11,7 @@
 #include <curand_kernel.h> // CURAND library for random numbers in cuda
 #include <cuda_runtime.h> // For memory management in GPU
 
-#include "numericalAlgorithms/rk4_64.h" // RK4 64 bits algorithm
+#include "rk4_64.h" // RK4 64 bits algorithm
 
 /**
 Parameters to pass onto the model
@@ -145,7 +145,7 @@ __global__ void makey2_tan(double *y, double *y2, const unsigned long int N){
         double s, c;
         sincos(y[i], &s, &c);
         
-        double v = y[N+i]
+        double v = y[N+i];
         
         y2v[i] = make_double2(c, s);
         y2v[N+i] = make_double2(c*v, s*v);
@@ -396,7 +396,7 @@ void dydt_tan(double t, double* y, double* f, void* pars){
     parameters *p = (parameters *) pars;
 
     makey2_tan<<<(p->N+255)/256,256>>>(y,p->y2,p->N);
-    makecouplings_tan(y+p->N,p->y2,p->f2,pars);
+    makecouplings_tan(p->y2,p->f2,pars);
 
     kuramoto_traj_tan<<<(p->N+255)/256,256>>>(p->y2, f, p->f2, p->omegas, p->JsqrtN, p->N);
 }
@@ -405,7 +405,7 @@ void dydt(double t, double* y, double* f, void* pars){
     parameters *p = (parameters *) pars;
 
     makey2<<<(p->N+255)/256,256>>>(y,p->y2,p->N);
-    makecouplings(y+p->N,p->y2,p->f2,pars);
+    makecouplings(p->y2,p->f2,pars);
 
     kuramoto_traj<<<(p->N+255)/256,256>>>(p->y2, f, p->f2, p->omegas, p->JsqrtN, p->N);
 }
@@ -822,14 +822,12 @@ int main(int argc, char*argv[]){
 
     char* filebase = NULL; // Base name for the simulation files
 
-    char* srelo = NULL; // Characters in case of reload
     int reload_ic=0; // Reload initial conditions, False
     int reload_freq=0; // Reload frequencies, False
     int reload_adj=0; // Reaload adjacency matrix, False
     int ic_start=0; // Reload ONLY thetas, False
     
     int m=0;
-    int help=0;
     int dense=0;
     
     int opt, option_index = 0; //For the options is better an int here
@@ -893,7 +891,7 @@ int main(int argc, char*argv[]){
             case 1  : reload_ic   = 1;                              break;
             case 2  : reload_freq = 1;                              break;
             case 3  : reload_adj  = 1;                              break;
-            case 'h': print_help(argv[0]); exit(0);
+            case 'h': print_help(argv[0]); return 0;
             case '?':
                 fprintf(stderr, "Error: Unknown Option.\nRun '%s --help' for Usage.\n", argv[0]);
                 return 1;
@@ -917,7 +915,7 @@ int main(int argc, char*argv[]){
 
     if (dt*h>=tf){
       fprintf(stderr,"ERROR: Output saving bigger than total simulation time. Nothing will be saved!\n ");
-      fprintf(stderr,"ERROR: If this is desired set -o 0 (dt=0) to simulate without saving.\n ");
+      fprintf(stderr,"       If this is desired set -o 0 (dt=0) to simulate without saving.\n ");
       return 1;
     }
     
@@ -1047,6 +1045,7 @@ int main(int argc, char*argv[]){
             printf("Frequencies not compatible with N!\n\n");
             return 1;
         }
+        
     } else {
         printf("Using random frequencies.\n");
         if (normal){
@@ -1083,7 +1082,7 @@ int main(int argc, char*argv[]){
         if (read_adj!=N){
             printf("Adjacency matrix not compatible with N!\n\n");
             return 1;
-    
+        }
         cublasSetVector(N*N, sizeof(double), adjloc, 1, adj, 1);
     
     } else {
@@ -1120,8 +1119,8 @@ int main(int argc, char*argv[]){
                 
         .ct=static_cast<unsigned long int>(std::round(ti/h)),
         .dt=dt,
-        .h=h,
         .ntau=static_cast<int>(std::round(tau/h)),
+        .h=h,
         
         .tf=tf,
         .tterm=tterm,
