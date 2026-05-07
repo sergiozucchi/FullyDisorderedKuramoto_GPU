@@ -15,7 +15,8 @@ This repository contains the program for the numerical simulation which runs on 
 
 ## Compilation
 
-In order to run the program his is an example of how to list things you need to use the software and how to install them.
+Specify the appropriate GPU architecture in the flag `-arch`
+
 ```bash
 # Clone the repository
 git clone <repo-url>
@@ -24,9 +25,6 @@ cd FullyDisorderedKuramoto_GPU
 
 nvcc -O3 -lcurand -lcublas -lcuda rk4_64.cu kuramoto_rk4_64_v3.cu -arch=sm_70 -o kuramotoGPU
 ```
-<div class="alert alert-block alert-warning">
-Specify the appropriate GPU architecture in the flag `-arch`
-</div>
 
 ## Running Kuramoto
 ### Help message
