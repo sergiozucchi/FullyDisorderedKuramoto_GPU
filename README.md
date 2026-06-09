@@ -40,7 +40,7 @@ Required:
 
 Flags:
   -h, --help                Show this help message and exits
-  -n, --normal              Normal distributed frequencies          (default: Cauchy)
+  -n, --normal              Normal distributed frequencies          (default: Uniform)
   -A, --adj                 Stores the full adjacency matrix        (uses more memory)
   -i, --reload-theta        Reload only thetas as intial conditions from file
 
@@ -100,6 +100,10 @@ The required argumetn `filebase` gives the base name for the output and input fi
 
 # Acknowledgments
 
-Sergio Zucchi acknowledges financial support by CSIC under the JAE-ICU 2025 Programme
+Sergio Zucchi aacknowledges financial support by CSIC under the JAE Intro ICU Programme Ref. JAEICU_25_03514
+
+# References
+
+The code, data and jupyter notebook were used to generate the figures in Sergio Zucchi, Iván León and Diego Pazó "The Lyapunov exponent is insensitive to coupling asymmetry in the fully-disordered Kuramoto model at weak coupling" (Date) [In progress]
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
