@@ -747,7 +747,7 @@ static void print_help(const char* prog_name){
 
     printf("\nFlags:\n");
     printf("  -h, --help                Show this help message and exits\n");
-    printf("  -n, --normal              Normal distributed frequencies          (default: Cauchy)\n");
+    printf("  -n, --normal              Normal distributed frequencies          (default: Uniform)\n");
     printf("  -A, --adj                 Stores the full adjacency matrix        (uses more memory)\n");
     printf("  -i, --reload-theta        Reload only thetas as intial conditions from file\n");
 
@@ -814,7 +814,7 @@ int main(int argc, char*argv[]){
 
     double freq=1.0; // Frequency scale for initial conditions
     double I=1.0; // Uniform scale for initial conditions
-    int normal=0; // Cauchy frequency distribution
+    int normal=0; // Uniform frequency distribution
     
     int seed=0; // seed for random  
 
@@ -1054,7 +1054,7 @@ int main(int argc, char*argv[]){
                 omegasloc[j] = distr_freq(gen);
             }
         }else{
-            std::cauchy_distribution<double> distr_freq(0.0,freq);
+            std::uniform_real_distribution<double> distr_freq(-freq,freq);
             for (int j=0; j<N; j++){
                 omegasloc[j] = distr_freq(gen);
             }
