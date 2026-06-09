@@ -22,7 +22,6 @@ Specify the appropriate GPU architecture in the flag `-arch`
 git clone <repo-url>
 cd FullyDisorderedKuramoto_GPU
 
-
 nvcc -O3 -lcurand -lcublas -lcuda rk4_64.cu kuramoto_rk4_64_v3.cu -arch=sm_70 -o kuramotoGPU
 ```
 
