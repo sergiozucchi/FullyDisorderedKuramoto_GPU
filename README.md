@@ -105,7 +105,7 @@ The data folder contains:
 - `fits*`: A numpy binary file with the fitted coefficients for the linear regressions.
 
     - `fitsLE_inf.npz`: Power law scaling coefficients $\alpha$ and $k$ for the regression of $\lambda_N$. First dimension is the coupling strength index in $J=\[0.14,0.2,0.28,0.4\]$, the second dimension is the asymmetry parameter index in $\eta=\[-1,-0.75,-0.5,-0.25,0,0.25,0.5,0.75,1\]$ and the third dimension is the value \[0\] and the error \[1\].
-    - `fitsWeak.npz`: Coefficients $a$ and $b$ for the regression of $\lambda_{infty}$ in the weak coupling regime. The first dimension is the asymmetry parameter index in $\eta=\[-1,-0.75,-0.5,-0.25,0,0.25,0.5,0.75,1\]$ and the second contains the value \[0\] and the error \[1\].
+    - `fitsWeak.npz`: Coefficients $a$ and $b$ for the regression of $\lambda_{\infty}$ in the weak coupling regime. The first dimension is the asymmetry parameter index in $\eta=\[-1,-0.75,-0.5,-0.25,0,0.25,0.5,0.75,1\]$ and the second contains the value \[0\] and the error \[1\].
     
 - `rawData/`: Raw data used in the analysis.
     
