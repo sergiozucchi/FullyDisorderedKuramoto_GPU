@@ -90,12 +90,28 @@ This execution runs a 6400 oscilator simulation with assymetry parameter $\eta=1
 
 ### Output and Input files
 
-The required argumetn `filebase` gives the base name for the output and input files. In general:
+The required argument `filebase` gives the base name for the output and input files. In general:
 
 - `filebase.out` is a text file containing command lines, runtime and some general information.
 - `filebase_fs.dat` is the final state in binary format. The final time and step size h are appended at the end.
 - `filebase_freq.dat` is the oscillators natural frequency $\omega$ in binary format.
 - `filebase_adj.dat` is the adjacency matrix in columns and binary format.
+
+## Data files
+
+The data folder contains:
+
+- `figData/`: The necessary data to replicate the figures in the notebook `kuramotoLyap_Figures.ipynb`.
+- `fits*`: A numpy binary file with the fitted coefficients for the linear regressions.
+
+    - `fitsLE_inf.npz`: Power law scaling coefficients $\alpha$ and $k$ for the regression of $\lambda_N$. First dimension is the coupling strength index in $J=\[0.14,0.2,0.28,0.4\]$, the second dimension is the asymmetry parameter index in $\eta=\[-1,-0.75,-0.5,-0.25,0,0.25,0.5,0.75,1\]$ and the third dimension is the value \[0\] and the error \[1\].
+    - `fitsWeak.npz`: Coefficients $a$ and $b$ for the regression of $\lambda_{infty}$ in the weak coupling regime. The first dimension is the asymmetry parameter index in $\eta=\[-1,-0.75,-0.5,-0.25,0,0.25,0.5,0.75,1\]$ and the second contains the value \[0\] and the error \[1\].
+    
+- `rawData/`: Raw data used in the analysis.
+    
+    - `linfopt_bootstrap_J*`: The bootstrap iterations for the estimation of $\lambda_{\infty}$. For values of the asymmetry parameter $\eta=\[-1,-0.75,-0.5,-0.25,0,0.25,0.5,0.75,1\]$, the first dimension corresponds to the asymmetry parameter index and the second column to the bootstrap index.
+    - `data_MLE_J*/`: Raw data from the simulations with the simulation seed (1st column), asymmetry parameter (2nd column), Lyapunov exponent $\lambda_N$ (3rd column) and standard deviation from the finite time Lyapunov exponent (4th column). Mean and standard deviation for each label can be found in the file `avLE_sim.csv`
+    - `*.csv`: Labeled raw data for the $\[\lambda_N\]$, $\lambda_{\infty}$ and diffusion $\[D_N\]$.
 
 # Acknowledgments
 
