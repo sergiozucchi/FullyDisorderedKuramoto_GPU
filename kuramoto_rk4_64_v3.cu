@@ -430,6 +430,47 @@ double normVec(double* y, int N, cublasHandle_t handle){
     return norm;
 }
 
+__global__ void sumLogs(const double* in, double* out, int n) {
+    extern __shared__ double sdata[];
+    int tid = threadIdx.x;
+    double local = 0.0;
+
+    // Grid-stride loop to handle multiple elements
+    for (int i = blockIdx.x * blockDim.x + tid; i < n; i += blockDim.x * gridDim.x) {
+        local += log(fabs(in[i]));
+    }
+
+    sdata[tid] = local;
+    __syncthreads();
+
+    for (int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (tid < s) sdata[tid] += sdata[tid + s];
+        __syncthreads();
+    }
+
+    if (tid == 0) atomicAdd(out, sdata[0]);
+}
+
+double norm0Vec(double* y, int N, cublasHandle_t handle){
+
+    double ln_norm;
+    double *d_out;
+    
+    cudaMalloc((void**)&d_out,sizeof(double));
+    
+    sumLogs<<<(N+255)/256,256,256*sizeof(double)>>>(y,d_out,N);
+    cudaMemcpy(&ln_norm, d_out, sizeof(double), cudaMemcpyDeviceToHost);
+    
+    ln_norm/=N;
+    
+    cudaFree(d_out);
+    
+    double alpha=1/std::exp(ln_norm);
+    cublasDscal(handle,N,&alpha,y,1);
+    
+    return ln_norm;
+}
+
 /**
 Step evaluation function for Maximum Lyapunov Exponent
 
@@ -485,6 +526,25 @@ void step_eval_MLE(double t,double* y, void* pars, void* files){
         double norm=normVec(y+p->N,p->N,p->handle);
         
         p->lyap=std::log(norm)/(p->nsave*p->h);
+        f->lyap+=p->lyap;
+        f->lyap2+=(p->lyap*p->lyap);
+        
+        p->count2save++;
+        p->nsave=0;
+    }
+}
+
+void step_eval_norm0(double t,double* y, void* pars, void* files){
+    parameters *p = (parameters *) pars;
+    files_MLE *f = (files_MLE *) files;
+    
+    p->nsave++;
+    
+    if (p->nsave>=p->ntau){
+        
+        double ln_norm=norm0Vec(y+p->N,p->N,p->handle);
+        
+        p->lyap=ln_norm/(p->nsave*p->h);
         f->lyap+=p->lyap;
         f->lyap2+=(p->lyap*p->lyap);
         
@@ -737,6 +797,71 @@ void mode_checkTrans(void* pars){
     
 }
 
+/**
+Mode for the average of lyapunov exponents simulation with L0 norm
+
+@param  {void*}     pars    Pointer to parameter structure
+*/
+void mode_MLEnorm0(void* pars){
+    parameters *p = (parameters *) pars;
+    
+    double *y;
+    char file[256];
+    
+    FILE *outMLE;
+    
+    // Termalization trajectories, reset and termalization Lyapunov
+    
+    rk4_init(p->N, p->h, p->yloc, &dydt);
+    
+    y=rk4_run_term(&(p->ct),p->tterm,pars);
+    
+    cublasGetVector(p->N, sizeof(double), y, 1, p->yloc, 1);
+    
+    rk4_reset(2*p->N,p->yloc,&dydt_tan);
+    
+    y=rk4_run_term(&(p->ct),p->tterm+p->tterm_lyap,pars);
+    
+    static_cast<void>(normVec(y+p->N,p->N,p->handle)); // Just normalizing without return
+    
+    cublasGetVector(2*p->N, sizeof(double), y, 1, p->yloc, 1);
+    
+    strcpy(file,p->filebase);
+    strcat(file, "_MLEnorm0.dat");
+    outMLE = fopen(file,"a");
+    
+    files_MLE fPointers = {
+        .lyap=0,
+        .lyap2=0
+    };
+    
+    rk4_run(&(p->ct), p->tf, pars, &fPointers, &step_eval_norm0);
+    
+    fPointers.lyap/=p->count2save;
+    
+    double varLyap=fPointers.lyap2/p->count2save-fPointers.lyap*fPointers.lyap;
+    
+    fprintf(outMLE,"%d %.2f %.12e %.7e\n",p->seed, p->eta,fPointers.lyap,varLyap);
+    
+    fclose(outMLE);   
+    
+    // Final state save
+    reduceFinalState<<<(p->N+255)/256,256>>>(y,p->N);
+    cublasGetVector(2*p->N, sizeof(double), y, 1, p->yloc, 1);
+    
+    double tf=p->ct*p->h;
+    
+    strcpy(file,p->filebase);
+    strcat(file,"_fs.dat");
+    FILE *outlast=fopen(file,"wb");
+
+    fwrite(p->yloc,sizeof(double),2*p->N,outlast);
+    fwrite(&tf,sizeof(double),1,outlast);
+    fwrite(&(p->h),sizeof(double),1,outlast);
+    fclose(outlast);
+    
+}
+
 static void print_help(const char* prog_name){
     printf("Usage: %s [OPTIONS] filebase\n\n", prog_name);
     
@@ -774,13 +899,14 @@ static void print_help(const char* prog_name){
     printf("  -s, --seed s              Random seed                                     (default: 0)\n");
 
     printf("Mode Parameter (Add other modes if needed):\n");
-    printf("  -m, --mode m              Mode selector       (default: 0)\n");
+    printf("  -m, --mode m              Mode selector             (default: 0)\n");
     printf("                              0 = Mode for one run of MLE evaluation.\n");
     printf("                              1 = Mode for multiple runs for the average in MLE evaluations.\n");
     printf("                              2 = Mode for one run to save the full vector.\n");
+    printf("                              3 = Mode 1 with L0 norm instead of L2 norm.\n");
     
     printf("\nOutput Parameter:\n");
-    printf("  -D, --dense d             Output density      (default: 0)\n");
+    printf("  -D, --dense d             Output density for mode 0 (default: 0)\n");
     printf("                              0 = MLE and final state\n");
     printf("                              1 = 0 + thetas\n");
     printf("                              2 = 1 + adjacency\n");
@@ -1150,6 +1276,8 @@ int main(int argc, char*argv[]){
         mode_MLE(&pars);
     } else if (m==2) {
         mode_checkTrans(&pars);
+    } else if (m==3) {
+        mode_MLEnorm0(&pars);
     }
     
     /** Print Simulation Timer **/

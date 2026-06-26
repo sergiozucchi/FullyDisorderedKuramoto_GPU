@@ -64,6 +64,7 @@ Mode Parameter (Add other modes if needed):
                               0 = Mode for one run of MLE evaluation.
                               1 = Mode for multiple runs for the average in MLE evaluations.
                               2 = Mode for one run to save the full vector.
+                              3 = Mode 1 with L0 norm instead of L2 norm.
 
 Output Parameter:
   -D, --dense d             Output density      (default: 0)
