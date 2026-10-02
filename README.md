@@ -41,7 +41,7 @@ Flags:
   -h, --help                Show this help message and exits
   -n, --normal              Normal distributed frequencies          (default: Uniform)
   -A, --adj                 Stores the full adjacency matrix        (uses more memory)
-  -i, --reload-theta        Reload only thetas as intial conditions from file
+  -i, --reload-theta        Reload only thetas as initial conditions from file
 
 Reload Options:
       --reload-ic           Reload full initial conditions from file
@@ -116,10 +116,10 @@ The data folder contains:
 
 # Acknowledgments
 
-Sergio Zucchi aacknowledges financial support by CSIC under the JAE Intro ICU Programme Ref. JAEICU_25_03514
+Sergio Zucchi acknowledges financial support by CSIC under the JAE Intro ICU Programme Ref. JAEICU_25_03514
 
 # References
 
-The code, data and jupyter notebook were used to generate the figures in Sergio Zucchi, Iván León and Diego Pazó "The Lyapunov exponent is insensitive to coupling asymmetry in the fully-disordered Kuramoto model at weak coupling" (Date) [In progress]
+The code, data and jupyter notebook were used to generate the figures in Sergio Zucchi, Iván León and Diego Pazó "Insensitivity to coupling asymmetry of the Lyapunov exponent in the fully disordered Kuramoto model at weak coupling" (Date) [In progress]
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
