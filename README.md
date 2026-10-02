@@ -115,8 +115,10 @@ The data folder contains:
     - `*.csv`: Labeled raw data for the $\[\lambda_N\]$, $\lambda_{\infty}$ and diffusion $\[D_N\]$.
 
 # Acknowledgments
-S.Z.~acknowledges financial support by CSIC under the JAE Intro ICU Programme Ref. JAEICU_25_03514. 
-I.L.~and D.P.~acknowledge support by Grants No. PID2021-125543NB-I00 and  No. PID2025-169943NB-C21, funded by MI-CIU/AEI/10.13039/501100011033 and by ERDF/EU.
+Sergio Zucchi acknowledges financial support by CSIC under the JAE Intro ICU Programme Ref. JAEICU_25_03514. 
+
+Iván León and Diego Pazó acknowledge support by Grants No. PID2021-125543NB-I00 and  No. PID2025-169943NB-C21, funded by MI-CIU/AEI/10.13039/501100011033 and by ERDF/EU.
+
 The authors also acknowledge the Santander Supercomputing support group at the University of Cantabria for providing access to the Altamira supercomputer at the Institute of Physics of Cantabria (IFCA-CSIC), member of the Spanish Supercomputing Network (RES).
 
 # References
